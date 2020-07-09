@@ -13,5 +13,5 @@ Contiene el archivo con la data que se usará en el workshop
 Inlcuye los notebooks de EMR con los que se trabajará durante el workshop
 
 ## step-function
-Tiene un template de una step-function que permite levantar un cluster, correr una aplicación de pyspark y terminar el cluster.
+Tiene un template de una step-function que permite levantar un cluster, correr una aplicación de pyspark y terminar el cluster
 
