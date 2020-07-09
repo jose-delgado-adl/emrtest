@@ -1,0 +1,1 @@
+[{"configurations":[{"classification":"export","properties":{"PYSPARK_PYTHON":"/usr/bin/python3"}}],"classification":"spark-env","properties":{}}]

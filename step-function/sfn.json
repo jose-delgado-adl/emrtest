@@ -1,0 +1,180 @@
+{
+  "Comment": "EMR for porvenir",
+  "StartAt": "Create EMR cluster",
+  "States": {
+    "Create EMR cluster": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::elasticmapreduce:createCluster.sync",
+      "Parameters": {
+        "Name": "porv-test",
+        "VisibleToAllUsers": true,
+        "ReleaseLabel": "emr-6.0.0",
+        "Applications": [
+          {
+            "Name": "Spark"
+          }
+        ],
+        "ServiceRole": "EMR_DefaultRole",
+        "JobFlowRole": "EMR_EC2_DefaultRole",
+        "LogUri": "s3://aws-logs-519293588480-us-east-2/elasticmapreduce/",
+        "Instances": {
+          "KeepJobFlowAliveWhenNoSteps": true,
+          "InstanceFleets": [
+            {
+              "Name": "porv-master",
+              "InstanceFleetType": "MASTER",
+              "TargetOnDemandCapacity": 1,
+              "InstanceTypeConfigs": [
+                {
+                  "InstanceType": "m5.xlarge"
+                }
+              ]
+            },
+            {
+              "Name": "porv-core",
+              "InstanceFleetType": "CORE",
+              "TargetOnDemandCapacity": 2,
+              "InstanceTypeConfigs": [
+                {
+                  "InstanceType": "m5.xlarge"
+                }
+              ]
+            },
+            {
+              "Name": "porv-task",
+              "InstanceFleetType": "TASK",
+              "TargetOnDemandCapacity": 1,
+              "InstanceTypeConfigs": [
+                {
+                  "InstanceType": "m5.xlarge"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "ResultPath": "$.cluster",
+      "Next": "Copy Project"
+    },
+    "Copy Project": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::elasticmapreduce:addStep.sync",
+      "Parameters": {
+        "ClusterId.$": "$.cluster.ClusterId",
+        "Step": {
+          "Name": "Copiar codigo",
+          "ActionOnFailure": "CONTINUE",
+          "HadoopJarStep": {
+            "Jar": "command-runner.jar",
+            "Args": [
+              "aws",
+              "s3",
+              "cp",
+              "", //path de s3 del archivo
+              "/home/hadoop/"
+            ]
+          }
+        }
+      },
+      "ResultPath": "$.fisrtStep",
+      "Next": "Unzip Project",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "Terminate Cluster"
+        }
+      ]
+    },
+    "Unzip Project": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::elasticmapreduce:addStep.sync",
+      "Parameters": {
+        "ClusterId.$": "$.cluster.ClusterId",
+        "Step": {
+          "Name": "Unzip archivo",
+          "ActionOnFailure": "CONTINUE",
+          "HadoopJarStep": {
+            "Jar": "command-runner.jar",
+            "Args": [
+              "sudo",
+              "unzip",
+              "/home/hadoop/", //Agregar path zip
+              "-d",
+              "/home/hadoop/"
+            ]
+          }
+        }
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "Terminate Cluster"
+        }
+      ],
+      "ResultPath": "$.secondStep",
+      "Next": "Install Requirements",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "Terminate Cluster"
+        }
+      ]
+    },
+    "Install Requirements": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::elasticmapreduce:addStep.sync",
+      "Parameters": {
+        "ClusterId.$": "$.cluster.ClusterId",
+        "Step": {
+          "Name": "Instalar requerimientos",
+          "ActionOnFailure": "CONTINUE",
+          "HadoopJarStep": {
+            "Jar": "command-runner.jar",
+            "Args": [
+              "sudo",
+              "pip3",
+              "install",
+              "-r",
+              "/home/hadoop/" //Agregar path requirements.txt
+            ]
+          }
+        }
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "Terminate Cluster"
+        }
+      ],
+      "ResultPath": "$.thirdStep",
+      "Next": "Run Project",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "Terminate Cluster"
+        }
+      ]
+    },
+    "Run Project": {
+    
+    },
+    "Terminate Cluster": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::elasticmapreduce:terminateCluster.sync",
+      "Parameters": {
+          "ClusterId.$": "$.cluster.ClusterId"
+      },
+      "End": true
+    }
+  }
+}
